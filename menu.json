@@ -129,6 +129,16 @@
       "emoji": "🥗",
       "cat": "acomp",
       "avail": true
+    },
+    {
+      "id": "c12",
+      "name": "Bode ao Molho",
+      "desc": "Bode macio ao molho especial da casa, acompanha guarnição.",
+      "price": 42,
+      "emoji": "🐐",
+      "cat": "pratos",
+      "avail": true,
+      "img": "https://junior469.github.io/toca-do-bode/images/bode-ao-molho.jpg"
     }
   ]
 }
