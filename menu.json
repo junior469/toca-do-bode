@@ -45,7 +45,8 @@
       "price": 35,
       "emoji": "🍝",
       "cat": "pratos",
-      "avail": true
+      "avail": true,
+      "img": "https://junior469.github.io/toca-do-bode/images/lasanha-de-frango.png"
     },
     {
       "id": "c3",
