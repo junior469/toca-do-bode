@@ -760,6 +760,63 @@ const mem = {};
 function storeGet(k){ try{ const v=localStorage.getItem(k); if(v!==null) return v; }catch(e){} return mem[k]===undefined?null:mem[k]; }
 function storeSet(k,v){ try{ localStorage.setItem(k,v); }catch(e){} mem[k]=v; }
 function storeDel(k){ try{ localStorage.removeItem(k); }catch(e){} delete mem[k]; }
+const imgDB = (()=>{
+  let db = null, open = null;
+  function get(){ if(open) return open;
+    open = new Promise((res, rej)=>{
+      const rq = indexedDB.open('toca_do_bode_imgs', 1);
+      rq.onupgradeneeded = ()=> rq.result.createObjectStore('imgs');
+      rq.onsuccess = ()=> res(rq.result);
+      rq.onerror = ()=> rej(rq.error);
+    });
+    return open;
+  }
+  function put(key, dataUrl){ return get().then(d=>new Promise((res,rej)=>{ const tx=d.transaction('imgs','readwrite'); tx.objectStore('imgs').put(dataUrl, key); tx.oncomplete=res; tx.onerror=()=>rej(tx.error); })); }
+  function del(key){ return get().then(d=>new Promise((res,rej)=>{ const tx=d.transaction('imgs','readwrite'); tx.objectStore('imgs').delete(key); tx.oncomplete=res; tx.onerror=()=>rej(tx.error); })); }
+  function read(key){ return get().then(d=>new Promise((res,rej)=>{ const rq=d.transaction('imgs').objectStore('imgs').get(key); rq.onsuccess=()=>res(rq.result||null); rq.onerror=()=>rej(rq.error); })); }
+  function clear(){ return get().then(d=>new Promise((res,rej)=>{ const tx=d.transaction('imgs','readwrite'); tx.objectStore('imgs').clear(); tx.oncomplete=res; tx.onerror=()=>rej(tx.error); })); }
+  return { put, del, read, clear };
+})();
+const imgCache = {};
+let pendingImg = '';
+function isMarker(v){ return typeof v === 'string' && v.indexOf('idb:')===0; }
+function imgKey(v){ return isMarker(v) ? v.slice(4) : null; }
+function imgUrl(v){
+  if(isMarker(v)) return imgCache[v.slice(4)] || '';
+  return v || '';
+}
+function imgMarker(key){ return 'idb:' + key; }
+async function resolveImages(){
+  const jobs = [];
+  state.dishes.forEach(d=>{
+    if(d.img && isMarker(d.img)){
+      const k = d.img.slice(4);
+      if(!imgCache[k]) jobs.push(imgDB.read(k).then(u=>{ if(u) imgCache[k] = u; }));
+    }
+  });
+  if(state.config.logo && isMarker(state.config.logo) && !imgCache['logo']){
+    jobs.push(imgDB.read('logo').then(u=>{ if(u) imgCache['logo'] = u; }));
+  }
+  await Promise.all(jobs);
+}
+async function migrateImgs(){
+  let changed = false;
+  for(const d of state.dishes){
+    if(d.img && d.img.indexOf('data:')===0){
+      try{ await imgDB.put(d.id, d.img); imgCache[d.id] = d.img; d.img = imgMarker(d.id); changed = true; }catch(e){}
+    }
+  }
+  if(state.config.logo && state.config.logo.indexOf('data:')===0){
+    try{ await imgDB.put('logo', state.config.logo); imgCache['logo'] = state.config.logo; state.config.logo = imgMarker('logo'); changed = true; }catch(e){}
+  }
+  if(changed){ try{ saveAll(); }catch(e){} }
+}
+function snapshotWithImgs(){
+  const copy = JSON.parse(JSON.stringify(state));
+  copy.dishes.forEach(d=>{ if(d.img && isMarker(d.img)){ d.img = imgCache[d.img.slice(4)] || ''; } });
+  if(copy.config.logo && isMarker(copy.config.logo)) copy.config.logo = imgCache['logo'] || '';
+  return copy;
+}
 let activeCat = 'all';
 
 function uid(){ return 'x' + Date.now().toString(36) + Math.random().toString(36).slice(2,7); }
@@ -871,7 +928,8 @@ function renderTexts(){
 
 function logoHTML(){
   const lg = state.config.logo || '🐐';
-  return lg.indexOf('data:')===0 ? '<img class="logo-img" src="'+lg+'" alt="Toca do Bode">' : lg;
+  const u = imgUrl(lg);
+  return u ? '<img class="logo-img" src="'+u+'" alt="Toca do Bode">' : lg;
 }
 
 function applyLogo(){
@@ -883,12 +941,13 @@ function applyLogo(){
     const el = document.querySelector(sel);
     if(el) el.innerHTML = (sel === '.nav .mark') ? '🐐' : logoHTML();
   });
+  const hasLogo = !!imgUrl(state.config.logo);
   const aboutW = document.querySelector('.about-photo');
-  if(aboutW) aboutW.classList.toggle('has-photo', (state.config.logo||'').indexOf('data:')===0);
+  if(aboutW) aboutW.classList.toggle('has-photo', hasLogo);
   const about = document.querySelector('.about-photo > span');
-  if(about) about.classList.toggle('has-img', (state.config.logo||'').indexOf('data:')===0);
+  if(about) about.classList.toggle('has-img', hasLogo);
   const bl = document.querySelector('.bl-mark');
-  if(bl) bl.classList.toggle('has-logo', (state.config.logo||'').indexOf('data:')===0);
+  if(bl) bl.classList.toggle('has-logo', hasLogo);
   const pv = document.getElementById('logoPrev');
   if(pv) pv.innerHTML = logoHTML();
 }
@@ -900,13 +959,19 @@ function onLogoPick(inp){
   reader.onload = e=>{
     const img = new Image();
     img.onload = ()=>{
-      const MAX = 512;
+      const MAX = 400;
       let w = img.width, h = img.height;
-      if(Math.max(w,h) > MAX){ const k = MAX/Math.max(w,h); w = Math.round(w*k); h = Math.round(h*k); }
+      if(Math.max(w,h) > MAX){
+        const k = MAX/Math.max(w,h);
+        w = Math.round(w*k); h = Math.round(h*k);
+      }
       const cv = document.createElement('canvas');
       cv.width = w; cv.height = h;
       cv.getContext('2d').drawImage(img, 0, 0, w, h);
-      state.config.logo = cv.toDataURL('image/png');
+      const data = cv.toDataURL('image/jpeg', .85);
+      imgCache['logo'] = data;
+      imgDB.put('logo', data).catch(()=>{});
+      state.config.logo = imgMarker('logo');
       inp.value = '';
       applyLogo();
       toast('Foto do bode carregada. Clique em 💾 Salvar Configurações.');
@@ -918,6 +983,8 @@ function onLogoPick(inp){
 
 function clearLogo(){
   state.config.logo = '🐐';
+  delete imgCache['logo'];
+  imgDB.del('logo').catch(()=>{});
   applyLogo();
   toast('Logo voltou ao emoji 🐐. Salve as configurações.');
 }
@@ -978,11 +1045,11 @@ function dishCard(d){
   const card = document.createElement('article');
   card.className = 'dish reveal';
   const cat = state.categories.find(c=>c.id===d.cat);
-  const visual = d.img
-    ? `<img src="${d.img}" alt="${esc(d.name)}" loading="lazy">`
+  const visual = imgUrl(d.img)
+    ? `<img src="${imgUrl(d.img)}" alt="${esc(d.name)}" loading="lazy">`
     : (d.emoji || '🍽️');
   card.innerHTML = `
-    <div class="dish-img${d.img?' has-img':''}">${visual}</div>
+    <div class="dish-img${imgUrl(d.img) ? ' has-img' : ''}">${visual}</div>
     <div class="dish-body">
       <div class="dish-top">
         <div><div class="dish-name">${d.name}</div><div class="dish-cat">${cat?cat.name:''}</div></div>
@@ -1017,7 +1084,7 @@ function buildSlider(){
   const dots = document.getElementById('sliderDots');
   if(!box || !dots) return;
   box.innerHTML = ''; dots.innerHTML = '';
-  let picks = state.dishes.filter(d=>d.avail && d.img);
+  let picks = state.dishes.filter(d=>d.avail && imgUrl(d.img));
   if(!picks.length) picks = state.dishes.filter(d=>d.avail);
   if(!picks.length) picks = state.dishes.slice();
   picks = picks.slice(0,4);
@@ -1026,8 +1093,9 @@ function buildSlider(){
     const s = document.createElement('div');
     s.className = 'slide';
     s.style.background = 'linear-gradient(140deg,#2e2418,#171110)';
-    const emoji = d.img ? '' : `<span class="s-emoji">${d.emoji||'🍽️'}</span>`;
-    s.innerHTML = (d.img?`<img class="s-img" src="${d.img}" alt="${esc(d.name)}" loading="lazy">`:'')
+    const u = imgUrl(d.img);
+    const emoji = u ? '' : `<span class="s-emoji">${d.emoji||'🍽️'}</span>`;
+    s.innerHTML = (u?`<img class="s-img" src="${u}" alt="${esc(d.name)}" loading="lazy">`:'')
       + emoji + `<div class="s-c"><b>${esc(d.name)}</b><span class="s-tag">✨ Destaque da casa</span></div>`;
     box.appendChild(s);
   });
@@ -1310,6 +1378,7 @@ function resetForm(){
   document.getElementById('dDesc').value='';
   document.getElementById('dImgData').value='';
   document.getElementById('dImg').value='';
+  pendingImg = '';
   const pv = document.getElementById('dImgPrev');
   pv.style.display='none'; pv.removeAttribute('src');
 }
@@ -1320,14 +1389,14 @@ function onImgPick(inp){
   reader.onload = e=>{
     const img = new Image();
     img.onload = ()=>{
-      const MAX = 640;
+      const MAX = 900;
       let w = img.width, h = img.height;
       if(Math.max(w,h) > MAX){ const k = MAX/Math.max(w,h); w = Math.round(w*k); h = Math.round(h*k); }
       const cv = document.createElement('canvas');
       cv.width = w; cv.height = h;
       cv.getContext('2d').drawImage(img, 0, 0, w, h);
-      const data = cv.toDataURL('image/jpeg', .72);
-      document.getElementById('dImgData').value = data;
+      const data = cv.toDataURL('image/jpeg', .78);
+      pendingImg = data;
       const pv = document.getElementById('dImgPrev');
       pv.src = data; pv.style.display = 'block';
     };
@@ -1338,6 +1407,7 @@ function onImgPick(inp){
 function clearImg(){
   document.getElementById('dImgData').value = '';
   document.getElementById('dImg').value = '';
+  pendingImg = '';
   const pv = document.getElementById('dImgPrev');
   pv.style.display='none'; pv.removeAttribute('src');
 }
@@ -1350,7 +1420,7 @@ function renderDishes(){
     const it = document.createElement('div');
     it.className = 'admin-item';
     it.innerHTML = `
-      <span class="ai-emoji">${d.img?`<img class="ai-img" src="${d.img}" alt="">`:(d.emoji||'🍽️')}</span>
+      <span class="ai-emoji">${imgUrl(d.img)?`<img class="ai-img" src="${imgUrl(d.img)}" alt="">`:(d.emoji||'🍽️')}</span>
       <div class="ai-info">
         <div class="ai-name">${esc(d.name)}</div>
         <div class="ai-meta">${cat?cat.name:''} • ${d.avail?'Disponível':'Esgotado'}</div>
@@ -1375,30 +1445,38 @@ function editDish(id){
   document.getElementById('dCat').value = d.cat;
   document.getElementById('dImgData').value = d.img || '';
   const pv = document.getElementById('dImgPrev');
-  if(d.img){ pv.src = d.img; pv.style.display = 'block'; }
+  const u = imgUrl(d.img);
+  if(u){ pv.src = u; pv.style.display = 'block'; }
   else{ pv.style.display = 'none'; pv.removeAttribute('src'); }
   document.getElementById('dName').scrollIntoView({behavior:'smooth'});
 }
-function saveDish(){
-  const id = document.getElementById('dId').value;
+async function saveDish(){
+  const existingId = document.getElementById('dId').value;
   const name = document.getElementById('dName').value.trim();
   const priceRaw = fmtParse(document.getElementById('dPrice').value);
   const price = isNaN(priceRaw) ? 0 : priceRaw;
   const emoji = document.getElementById('dEmoji').value.trim();
   const desc = document.getElementById('dDesc').value.trim();
   const cat = document.getElementById('dCat').value;
-  const img = document.getElementById('dImgData').value;
   if(!name){
     toast('Preencha o nome do prato.');
     return;
   }
+  const id = existingId || uid();
+  let img = document.getElementById('dImgData').value || '';
+  if(pendingImg){
+    try{ await imgDB.put(id, pendingImg); imgCache[id] = pendingImg; }
+    catch(e){ toast('Não foi possível salvar a imagem.'); return; }
+    img = imgMarker(id);
+    pendingImg = '';
+  }
   const data = { name, price, emoji, desc, cat };
-  if(img){ data.img = img; } else { data.img = ''; }
-  if(id){
-    const d = state.dishes.find(x=>x.id===id);
+  data.img = img;
+  if(existingId){
+    const d = state.dishes.find(x=>x.id===existingId);
     if(d) Object.assign(d, data);
   } else {
-    state.dishes.push({ id: uid(), avail:true, ...data });
+    state.dishes.push({ id, avail:true, ...data });
   }
   saveAll(); renderDishes(); resetForm(); buildAllPublic();
   toast('Prato salvo! ✓');
@@ -1407,6 +1485,8 @@ function delDish(id){
   if(!confirm('Excluir este prato do cardápio?')) return;
   state.dishes = state.dishes.filter(d=>d.id!==id);
   delete cart[id];
+  delete imgCache[id];
+  imgDB.del(id).catch(()=>{});
   saveAll(); renderDishes(); buildAllPublic();
   toast('Prato excluído.');
 }
@@ -1502,7 +1582,7 @@ function saveConfig(){
   state.config.publicUrl = document.getElementById('cUrl').value.trim();
   state.config.showPrices = document.getElementById('cShowPrices').checked;
   TEXTS.forEach(pair=>{ state.config[pair[1]] = document.getElementById(pair[0]).value.trim(); });
-  if(state.config.logo && state.config.logo.indexOf('data:')!==0) state.config.logo = '🐐';
+  if(state.config.logo && !isMarker(state.config.logo) && state.config.logo.indexOf('data:')!==0) state.config.logo = '🐐';
   const np = document.getElementById('cPass').value;
   if(np) state.config.password = np;
   saveAll(); buildAllPublic();
@@ -1511,7 +1591,7 @@ function saveConfig(){
 
 /* Backup */
 function exportJson(){
-  const blob = new Blob([JSON.stringify(state, null, 2)], {type:'application/json'});
+  const blob = new Blob([JSON.stringify(snapshotWithImgs(), null, 2)], {type:'application/json'});
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
   a.download = 'toca-do-bode-backup.json';
@@ -1520,7 +1600,7 @@ function exportJson(){
   document.getElementById('backupStatus').textContent = '✅ Backup baixado com sucesso!';
 }
 function copyJson(){
-  navigator.clipboard.writeText(JSON.stringify(state, null, 2)).then(()=>{
+  navigator.clipboard.writeText(JSON.stringify(snapshotWithImgs(), null, 2)).then(()=>{
     document.getElementById('backupStatus').textContent = '📋 JSON copiado para a área de transferência!';
   }).catch(()=>toast('Não foi possível copiar.'));
 }
@@ -1535,11 +1615,19 @@ function importJson(){
   if(txt) doImport(txt);
   else toast('Cole o JSON ou escolha um arquivo.');
 }
-function doImport(txt){
+async function doImport(txt){
   try{
     const data = JSON.parse(txt);
     if(!data.config || !Array.isArray(data.dishes)) throw 0;
     state = data;
+    for(const d of state.dishes){
+      if(d.id && d.img && d.img.indexOf('data:')===0){
+        try{ await imgDB.put(d.id, d.img); imgCache[d.id] = d.img; d.img = imgMarker(d.id); }catch(e){}
+      }
+    }
+    if(state.config.logo && state.config.logo.indexOf('data:')===0){
+      try{ await imgDB.put('logo', state.config.logo); imgCache['logo'] = state.config.logo; state.config.logo = imgMarker('logo'); }catch(e){}
+    }
     saveAll();
     buildAllPublic();
     document.getElementById('backupStatus').textContent = '✅ Dados importados com sucesso!';
@@ -1551,6 +1639,8 @@ function doImport(txt){
 function resetAll(){
   if(!confirm('Restaurar todo o cardápio para o padrão original? Esta ação apaga todas as alterações.')) return;
   storeDel(LS_KEY);
+  imgDB.clear().catch(()=>{});
+  for(const k in imgCache) if(k!=='logo') delete imgCache[k];
   state = buildDefaults();
   saveAll(); buildAllPublic(); renderAdmin();
   toast('Cardápio restaurado ao padrão.');
@@ -1604,8 +1694,12 @@ function buildQr(){
 /* ---------- Init ---------- */
 loadData();
 seedIfEmpty();
-buildAllPublic();
-revealObserver();
+(async function(){
+  await migrateImgs();
+  await resolveImages();
+  buildAllPublic();
+  revealObserver();
+})();
 </script>
 </body>
 </html>
