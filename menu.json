@@ -113,7 +113,8 @@
       "price": 12,
       "emoji": "🍛",
       "cat": "acomp",
-      "avail": true
+      "avail": true,
+      "img": "https://junior469.github.io/toca-do-bode/images/baiao-de-dois.jpg"
     },
     {
       "id": "c10",
