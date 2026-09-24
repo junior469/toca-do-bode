@@ -91,7 +91,8 @@
       "price": 48,
       "emoji": "🍖",
       "cat": "brasas",
-      "avail": true
+      "avail": true,
+      "img": "https://junior469.github.io/toca-do-bode/images/churrasco-de-leitao.jpg"
     },
     {
       "id": "c8",
