@@ -123,7 +123,8 @@
       "price": 10,
       "emoji": "🍝",
       "cat": "acomp",
-      "avail": true
+      "avail": true,
+      "img": "https://junior469.github.io/toca-do-bode/images/macarrao.jpg"
     },
     {
       "id": "c11",
@@ -132,7 +133,8 @@
       "price": 12,
       "emoji": "🥗",
       "cat": "acomp",
-      "avail": true
+      "avail": true,
+      "img": "https://junior469.github.io/toca-do-bode/images/salada-variadas.jpg"
     },
     {
       "id": "c12",
