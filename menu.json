@@ -1,0 +1,132 @@
+{
+  "v": 13,
+  "config": {
+    "name": "Restaurante Toca do Bode",
+    "tagline": "O autêntico sabor da culinária nordestina. Pratos típicos, carnes na brasa e o melhor do Nordeste, servidos com carinho e tempero de casa.",
+    "heroBadge": "Aberto hoje — peça agora",
+    "heroEyebrow": "RESTAURANTE",
+    "heroTitle": "Toca do Bode",
+    "heroSub": "Culinária Nordestina & Brasa",
+    "aboutTitle": "De família para a sua mesa",
+    "aboutP1": "Há gerações levamos a tradição da culinária nordestina para a mesa dos nossos clientes. Receitas passadas de pai para filho, carnes selecionadas e aquele tempero caseiro que faz toda a diferença.",
+    "aboutP2": "Cada prato é preparado com ingredientes frescos, escolhidos a dedo, para garantir uma experiência única. Venha viver o verdadeiro sabor do Nordeste!",
+    "address": "Av. João XXIII, 2436 - Noivos, Teresina/PI",
+    "whatsapp": "8698313553",
+    "instagram": "@tocadobode_the",
+    "facebook": "",
+    "hours": "Terça a Domingo — 11h às 23h",
+    "showPrices": false,
+    "publicUrl": "https://bios-rated-constitute-laptop.trycloudflare.com",
+    "logo": "🐐",
+    "password": "admin123"
+  },
+  "categories": [
+    {
+      "id": "pratos",
+      "name": "Pratos Principais",
+      "emoji": "🍲"
+    },
+    {
+      "id": "brasas",
+      "name": "Brasas & Churrasco",
+      "emoji": "🔥"
+    },
+    {
+      "id": "acomp",
+      "name": "Acompanhamentos",
+      "emoji": "🍚"
+    }
+  ],
+  "dishes": [
+    {
+      "id": "c1",
+      "name": "Lasanha de Frango",
+      "desc": "Lasanha cremosa de frango desfiado, molho especial e queijo gratinado.",
+      "price": 35,
+      "emoji": "🍝",
+      "cat": "pratos",
+      "avail": true
+    },
+    {
+      "id": "c3",
+      "name": "Frango ao Molho",
+      "desc": "Frango macio ao molho especial da casa, acompanha guarnição.",
+      "price": 32,
+      "emoji": "🍗",
+      "cat": "pratos",
+      "avail": true
+    },
+    {
+      "id": "c4",
+      "name": "Churrasco Contra Filé",
+      "desc": "Contra filé na brasa, ponto no capricho, com farofa e vinagrete.",
+      "price": 45,
+      "emoji": "🥩",
+      "cat": "brasas",
+      "avail": true
+    },
+    {
+      "id": "c5",
+      "name": "Frango Assado na Brasa",
+      "desc": "Frango assado lentamente na brasa, bem temperado e suculento.",
+      "price": 35,
+      "emoji": "🍗",
+      "cat": "brasas",
+      "avail": true
+    },
+    {
+      "id": "c6",
+      "name": "Toscana Mista na Brasa",
+      "desc": "Mistura de toscana na brasa, sabor marcante e defumado.",
+      "price": 45,
+      "emoji": "🌭",
+      "cat": "brasas",
+      "avail": true
+    },
+    {
+      "id": "c7",
+      "name": "Churrasco de Leitão",
+      "desc": "Leitão assado na brasa, crocante por fora e macio por dentro.",
+      "price": 48,
+      "emoji": "🍖",
+      "cat": "brasas",
+      "avail": true
+    },
+    {
+      "id": "c8",
+      "name": "Arroz Branco",
+      "desc": "Arroz branco soltinho, o acompanhamento perfeito.",
+      "price": 8,
+      "emoji": "🍚",
+      "cat": "acomp",
+      "avail": true
+    },
+    {
+      "id": "c9",
+      "name": "Baião de Dois",
+      "desc": "Baião de dois tradicional, cremoso e bem temperado.",
+      "price": 12,
+      "emoji": "🍛",
+      "cat": "acomp",
+      "avail": true
+    },
+    {
+      "id": "c10",
+      "name": "Macarrão",
+      "desc": "Macarrão ao alho e óleo ou molho da casa, como preferir.",
+      "price": 10,
+      "emoji": "🍝",
+      "cat": "acomp",
+      "avail": true
+    },
+    {
+      "id": "c11",
+      "name": "Salada Variadas",
+      "desc": "Salada fresca com folhas, legumes e tomate.",
+      "price": 12,
+      "emoji": "🥗",
+      "cat": "acomp",
+      "avail": true
+    }
+  ]
+}

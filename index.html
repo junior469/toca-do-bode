@@ -684,6 +684,7 @@ footer{border-top:1px solid var(--outline);padding:34px 0;color:var(--muted);fon
         <div class="full"><label>URL pública do site (para o QR Code)</label><input id="cUrl" placeholder="https://seudominio.com.br"></div>
         <div class="full"><label style="display:flex;align-items:center;gap:10px;cursor:pointer"><input type="checkbox" id="cShowPrices" style="width:auto"> Exibir preços no site</label></div>
         <div class="full"><label>Senha de administrador</label><input id="cPass" type="password" placeholder="Nova senha"></div>
+        <div class="full"><label>Token GitHub (para publicar fotos) — cole uma vez</label><input id="cGhTok" type="password" autocomplete="off" placeholder="ghp_..." style="font-family:monospace"><p style="font-size:.75rem;color:var(--muted);margin-top:4px">Fica guardado <b>só neste aparelho</b>, nunca no site. Criar: <span style="color:var(--gold)">github.com/settings/tokens</span> (marque a opção <b>repo</b>). Depois de colar, é só salvar.</p></div>
         <div class="full frm-row"><button class="btn btn-amber btn-sm" onclick="saveConfig()">💾 Salvar Configurações</button></div>
       </div>
     </div>
@@ -818,6 +819,57 @@ function snapshotWithImgs(){
   copy.dishes.forEach(d=>{ if(d.img && isMarker(d.img)){ d.img = imgCache[d.img.slice(4)] || ''; } });
   if(copy.config.logo && isMarker(copy.config.logo)) copy.config.logo = imgCache['logo'] || '';
   return copy;
+}
+const GH = {
+  owner: 'junior469',
+  repo: 'toca-do-bode',
+  tokenKey: 'toca_gh_token',
+  get token(){ return storeGet(this.tokenKey) || ''; },
+  pubUrl: 'https://junior469.github.io/toca-do-bode/'
+};
+const GHT = () => GH.token;
+function getToken(){ return GHT(); }
+async function ghPut(path, contentB64){
+  const base = 'https://api.github.com/repos/' + GH.owner + '/' + GH.repo + '/contents/' + path;
+  let sha = null;
+  try{
+    const g = await fetch(base, { headers: { 'Authorization': 'token ' + getToken(), 'Accept': 'application/vnd.github+json' } });
+    if(g.ok){ const j = await g.json(); sha = j.sha || null; }
+  }catch(e){}
+  const body = { message: 'update ' + path, content: contentB64 };
+  if(sha) body.sha = sha;
+  const r = await fetch(base, {
+    method: 'PUT',
+    headers: { 'Authorization': 'token ' + getToken(), 'Accept': 'application/vnd.github+json' },
+    body: JSON.stringify(body)
+  });
+  if(!r.ok){
+    let m = 'HTTP ' + r.status;
+    try{ const j = await r.json(); if(j.message) m = j.message; }catch(e){}
+    throw new Error(m);
+  }
+  return r.json();
+}
+async function ensureRemoteImg(key, dataUrl){
+  const name = 'images/' + key + '-' + Date.now() + '.jpg';
+  await ghPut(name, dataUrl.split(',')[1]);
+  return GH.pubUrl + name;
+}
+async function publishMenu(){
+  if(!getToken()){ lastStoreErr = 'Sem token GitHub (cole na aba Config)'; throw new Error(lastStoreErr); }
+  for(const d of state.dishes){
+    if(isMarker(d.img) && imgCache[d.img.slice(4)]) d.img = await ensureRemoteImg(d.id, imgCache[d.img.slice(4)]);
+  }
+  if(state.config.logo && isMarker(state.config.logo) && imgCache['logo']){
+    state.config.logo = await ensureRemoteImg('logo', imgCache['logo']);
+  }
+  const snap = JSON.stringify({ v: DATA_V, config: state.config, categories: state.categories, dishes: state.dishes });
+  await ghPut('menu.json', btoa(unescape(encodeURIComponent(snap))));
+}
+async function publishNow(){
+  if(!adminIn) return true;
+  try{ await publishMenu(); lastStoreErr = ''; return true; }
+  catch(e){ lastStoreErr = String(e && e.message ? e.message : e); return false; }
 }
 let activeCat = 'all';
 
@@ -1480,12 +1532,11 @@ async function saveDish(){
   const id = existingId || uid();
   let img = document.getElementById('dImgData').value || '';
   if(pendingImg){
-    try{ await imgDB.put(id, pendingImg); imgCache[id] = pendingImg; }
+    try{ img = await ensureRemoteImg(id, pendingImg); }
     catch(e){
-      toast('Erro na foto: ' + String(e && e.message ? e.message : e).slice(0,90));
-      return;
+      try{ await imgDB.put(id, pendingImg); imgCache[id] = pendingImg; img = imgMarker(id); }
+      catch(e2){ toast('Erro ao salvar a imagem.'); return; }
     }
-    img = imgMarker(id);
     pendingImg = '';
   }
   const data = { name, price, emoji, desc, cat };
@@ -1497,8 +1548,9 @@ async function saveDish(){
     state.dishes.push({ id, avail:true, ...data });
   }
   saveAll(); renderDishes(); resetForm(); buildAllPublic(); renderStorageStatus();
-  if(lastStoreErr){ toast('⚠️ ' + String(lastStoreErr).slice(0,90)); lastStoreErr = ''; }
-  else toast('Prato salvo! ✓');
+  const ok = await publishNow();
+  if(ok && !lastStoreErr) toast('Prato salvo e publicado! ✓');
+  else toast('⚠️ Salvo, mas não publicado: ' + String(lastStoreErr).slice(0,70));
 }
 function delDish(id){
   if(!confirm('Excluir este prato do cardápio?')) return;
@@ -1508,12 +1560,14 @@ function delDish(id){
   imgDB.del(id).catch(()=>{});
   saveAll(); renderDishes(); buildAllPublic();
   toast('Prato excluído.');
+  publishNow();
 }
 function toggleAvail(id){
   const d = state.dishes.find(x=>x.id===id);
   if(!d) return;
   d.avail = !d.avail;
   saveAll(); renderDishes(); buildAllPublic();
+  publishNow();
 }
 
 /* Categories */
@@ -1545,6 +1599,7 @@ function addCat(){
   document.getElementById('cName').value=''; document.getElementById('cEmoji').value='';
   saveAll(); renderCats(); buildAllPublic();
   toast('Categoria adicionada! ✓');
+  publishNow();
 }
 function editCat(id){
   const c = state.categories.find(x=>x.id===id);
@@ -1554,6 +1609,7 @@ function editCat(id){
   const ne = prompt('Emoji:', c.emoji||'');
   if(ne){ c.emoji = ne.trim(); }
   saveAll(); renderCats(); buildAllPublic();
+  publishNow();
 }
 function delCat(id){
   if(state.categories.length<=1){ toast('Não é possível excluir a única categoria.'); return; }
@@ -1563,6 +1619,7 @@ function delCat(id){
   state.categories = state.categories.filter(c=>c.id!==id);
   saveAll(); renderCats(); buildAllPublic();
   toast('Categoria excluída.');
+  publishNow();
 }
 
 /* Config */
@@ -1586,6 +1643,7 @@ function fillConfig(){
   document.getElementById('cUrl').value = state.config.publicUrl || '';
   document.getElementById('cShowPrices').checked = !!state.config.showPrices;
   document.getElementById('cPass').value = '';
+  document.getElementById('cGhTok').value = storeGet(GH.tokenKey) || '';
   TEXTS.forEach(pair=>{ document.getElementById(pair[0]).value = state.config[pair[1]] || ''; });
   applyLogo();
 }
@@ -1604,8 +1662,12 @@ function saveConfig(){
   if(state.config.logo && !isMarker(state.config.logo) && state.config.logo.indexOf('data:')!==0) state.config.logo = '🐐';
   const np = document.getElementById('cPass').value;
   if(np) state.config.password = np;
+  const tok = document.getElementById('cGhTok').value.trim();
+  if(tok) storeSet(GH.tokenKey, tok);
   saveAll(); buildAllPublic();
-  toast('Configurações salvas! ✓');
+  if(tok) toast('Configurações salvas! ✓ Token gravado');
+  else toast('Configurações salvas! ✓');
+  publishNow();
 }
 
 /* Backup */
@@ -1649,7 +1711,8 @@ async function doImport(txt){
     }
     saveAll();
     buildAllPublic();
-    document.getElementById('backupStatus').textContent = '✅ Dados importados com sucesso!';
+    const ok = await publishNow();
+    document.getElementById('backupStatus').textContent = ok ? '✅ Dados importados e publicados!' : '✅ Importado localmente (publicação ⚠️)';
     toast('Importação concluída! ✓');
   }catch(e){
     document.getElementById('backupStatus').textContent = '❌ JSON inválido. Verifique o conteúdo.';
@@ -1663,9 +1726,25 @@ function resetAll(){
   state = buildDefaults();
   saveAll(); buildAllPublic(); renderAdmin();
   toast('Cardápio restaurado ao padrão.');
+  publishNow();
 }
 
 /* ---------- Global render ---------- */
+function loadRemoteMenu(){
+  return fetch(GH.pubUrl + 'menu.json?t=' + Date.now())
+    .then(r=>{ if(!r.ok) return null; return r.json(); })
+    .then(parsed=>{
+      if(!parsed || !parsed.config || !Array.isArray(parsed.dishes)) return;
+      parsed.v = DATA_V;
+      parsed.config = Object.assign({}, DEFAULT_CONFIG, parsed.config);
+      if(!parsed.categories || !parsed.categories.length) parsed.categories = JSON.parse(JSON.stringify(DEFAULT_CATEGORIES));
+      parsed.dishes = parsed.dishes || [];
+      mergeDefaults(parsed);
+      state = parsed;
+      saveAll();
+    })
+    .catch(()=>{});
+}
 function norm(s){ return String(s||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/\s+/g,' ').trim(); }
 function dedupeDishes(){
   const seen = {};
@@ -1714,6 +1793,7 @@ function buildQr(){
 loadData();
 seedIfEmpty();
 (async function(){
+  await loadRemoteMenu();
   await migrateImgs();
   await resolveImages();
   buildAllPublic();
