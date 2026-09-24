@@ -644,6 +644,7 @@ footer{border-top:1px solid var(--outline);padding:34px 0;color:var(--muted);fon
         <div class="full frm-row"><input type="hidden" id="dId"><input type="hidden" id="dImgData"><button class="btn btn-amber btn-sm" onclick="saveDish()">💾 Salvar Prato</button><button class="btn btn-grey btn-sm" onclick="resetForm()">Limpar</button></div>
       </div>
       <div id="dishList"></div>
+      <div class="full status-line" id="storageStatus" style="font-size:.76rem;color:var(--muted);margin-top:6px"></div>
     </div>
 
     <div id="tab-cats" class="hidden">
@@ -757,8 +758,9 @@ let state = { config: {}, categories: [], dishes: [] };
 let cart = {};
 let adminIn = false;
 const mem = {};
+let lastStoreErr = '';
 function storeGet(k){ try{ const v=localStorage.getItem(k); if(v!==null) return v; }catch(e){} return mem[k]===undefined?null:mem[k]; }
-function storeSet(k,v){ try{ localStorage.setItem(k,v); }catch(e){} mem[k]=v; }
+function storeSet(k,v){ try{ localStorage.setItem(k,v); lastStoreErr=''; }catch(e){ lastStoreErr = 'localStorage: ' + (e ? (e.name||'') + ': ' + (e.message||e) : e); } mem[k]=v; }
 function storeDel(k){ try{ localStorage.removeItem(k); }catch(e){} delete mem[k]; }
 const imgDB = (()=>{
   let db = null, open = null;
@@ -771,7 +773,7 @@ const imgDB = (()=>{
     });
     return open;
   }
-  function put(key, dataUrl){ return get().then(d=>new Promise((res,rej)=>{ const tx=d.transaction('imgs','readwrite'); tx.objectStore('imgs').put(dataUrl, key); tx.oncomplete=res; tx.onerror=()=>rej(tx.error); })); }
+  function put(key, dataUrl){ return get().then(d=>new Promise((res,rej)=>{ const tx=d.transaction('imgs','readwrite'); tx.objectStore('imgs').put(dataUrl, key); tx.oncomplete=res; tx.onerror=()=>{ lastStoreErr = 'IndexedDB put: ' + (tx.error ? (tx.error.name||'') + ': ' + (tx.error.message||tx.error) : tx.error); rej(tx.error); }; })); }
   function del(key){ return get().then(d=>new Promise((res,rej)=>{ const tx=d.transaction('imgs','readwrite'); tx.objectStore('imgs').delete(key); tx.oncomplete=res; tx.onerror=()=>rej(tx.error); })); }
   function read(key){ return get().then(d=>new Promise((res,rej)=>{ const rq=d.transaction('imgs').objectStore('imgs').get(key); rq.onsuccess=()=>res(rq.result||null); rq.onerror=()=>rej(rq.error); })); }
   function clear(){ return get().then(d=>new Promise((res,rej)=>{ const tx=d.transaction('imgs','readwrite'); tx.objectStore('imgs').clear(); tx.oncomplete=res; tx.onerror=()=>rej(tx.error); })); }
@@ -1356,11 +1358,24 @@ function tab(name,btn){
   ['dishes','cats','config','backup'].forEach(t=>{
     document.getElementById('tab-'+t).classList.toggle('hidden', t!==name);
   });
-  if(name==='dishes') renderDishes();
+  if(name==='dishes'){ renderDishes(); renderStorageStatus(); }
   if(name==='cats') renderCats();
   if(name==='config') fillConfig();
 }
-function renderAdmin(){ document.getElementById('tab-dishes').classList.remove('hidden'); renderDishes(); }
+function renderAdmin(){ document.getElementById('tab-dishes').classList.remove('hidden'); renderDishes(); renderStorageStatus(); }
+function renderStorageStatus(){
+  const el = document.getElementById('storageStatus');
+  if(!el) return;
+  let kb = 0, raw = '';
+  try{ raw = localStorage.getItem(LS_KEY) || ''; kb = raw.length/1024; }catch(e){}
+  let imgs = 0, tart = 0;
+  try{ tart = JSON.stringify(raw).length; }catch(e){}
+  const photos = Object.keys(imgCache).length;
+  const parts = ['💾 Cardápio: ' + kb.toFixed(1) + ' KB (limite ~5 MB)'];
+  if(photos) parts.push('📷 Fotos no aparelho: ' + photos);
+  if(lastStoreErr) parts.push('⚠️ ' + String(lastStoreErr).slice(0,140));
+  el.textContent = parts.join('  ·  ');
+}
 
 /* Dishes */
 function fillCatSelect(){
@@ -1466,7 +1481,10 @@ async function saveDish(){
   let img = document.getElementById('dImgData').value || '';
   if(pendingImg){
     try{ await imgDB.put(id, pendingImg); imgCache[id] = pendingImg; }
-    catch(e){ toast('Não foi possível salvar a imagem.'); return; }
+    catch(e){
+      toast('Erro na foto: ' + String(e && e.message ? e.message : e).slice(0,90));
+      return;
+    }
     img = imgMarker(id);
     pendingImg = '';
   }
@@ -1478,8 +1496,9 @@ async function saveDish(){
   } else {
     state.dishes.push({ id, avail:true, ...data });
   }
-  saveAll(); renderDishes(); resetForm(); buildAllPublic();
-  toast('Prato salvo! ✓');
+  saveAll(); renderDishes(); resetForm(); buildAllPublic(); renderStorageStatus();
+  if(lastStoreErr){ toast('⚠️ ' + String(lastStoreErr).slice(0,90)); lastStoreErr = ''; }
+  else toast('Prato salvo! ✓');
 }
 function delDish(id){
   if(!confirm('Excluir este prato do cardápio?')) return;
