@@ -147,6 +147,16 @@
       "cat": "pratos",
       "avail": true,
       "img": "https://junior469.github.io/toca-do-bode/images/bode-ao-molho.jpg"
+    },
+    {
+      "id": "c13",
+      "name": "Peixe Assado",
+      "desc": "Peixe assado inteiro na brasa, acompanha guarnição.",
+      "price": 42,
+      "emoji": "🐟",
+      "cat": "pratos",
+      "avail": true,
+      "img": "https://junior469.github.io/toca-do-bode/images/peixe-assado.png"
     }
   ]
 }
