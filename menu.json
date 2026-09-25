@@ -167,6 +167,16 @@
       "cat": "acomp",
       "avail": true,
       "img": "https://junior469.github.io/toca-do-bode/images/feijao-tropeiro.png"
+    },
+    {
+      "id": "c15",
+      "name": "Feijoada",
+      "desc": "Feijoada completa com carnes selecionadas, arroz, farofa, couve e laranja.",
+      "price": 38,
+      "emoji": "🍲",
+      "cat": "pratos",
+      "avail": true,
+      "img": "https://junior469.github.io/toca-do-bode/images/feijoada.png"
     }
   ]
 }
