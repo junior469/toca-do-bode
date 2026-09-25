@@ -416,7 +416,7 @@ footer{border-top:1px solid var(--outline);padding:34px 0;color:var(--muted);fon
 <!-- NAVBAR -->
 <nav class="nav" id="nav">
   <div class="container nav-inner">
-    <a class="logo" href="#inicio"><span class="mark">🐐</span><span>Toca do Bode<small>RESTAURANTE</small></span></a>
+    <a class="logo" href="#inicio"><span class="mark"></span><span>Toca do Bode<small>RESTAURANTE</small></span></a>
     <div class="nav-links" id="navLinks">
       <a href="#inicio" class="active">Início</a>
       <a href="#cardapio">Cardápio</a>
@@ -437,7 +437,7 @@ footer{border-top:1px solid var(--outline);padding:34px 0;color:var(--muted);fon
     <div>
       <span class="hero-badge" id="heroBadge">Aberto hoje — peça agora</span>
       <div class="brand-lockup">
-        <span class="bl-mark">🐐</span>
+        <span class="bl-mark"></span>
         <div>
           <p class="bl-eyebrow" id="heroEyebrow">RESTAURANTE</p>
           <h1 id="heroTitle">Toca do <span>Bode</span></h1>
@@ -486,7 +486,7 @@ footer{border-top:1px solid var(--outline);padding:34px 0;color:var(--muted);fon
 <!-- SOBRE -->
 <section class="about" id="sobre">
   <div class="container about-grid">
-    <div class="about-photo reveal"><span>🐐</span><em>Nossa casa, seu paladar</em></div>
+    <div class="about-photo reveal"><span></span><em>Nossa casa, seu paladar</em></div>
     <div class="about-text reveal">
       <span class="section-tag">Nossa História</span>
       <h3 id="aboutTitle">De família para a sua mesa</h3>
@@ -547,7 +547,7 @@ footer{border-top:1px solid var(--outline);padding:34px 0;color:var(--muted);fon
     </div>
     <div class="qr-box reveal">
       <div class="qr-card">
-        <div class="qr-logo"><span class="mark">🐐</span> <b>Restaurante Toca do Bode</b></div>
+        <div class="qr-logo"><span class="mark"></span> <b>Restaurante Toca do Bode</b></div>
         <img id="qrImg" alt="QR Code do cardápio digital">
         <p>📱 Aponte a câmera e peça!</p>
       </div>
@@ -573,7 +573,7 @@ footer{border-top:1px solid var(--outline);padding:34px 0;color:var(--muted);fon
 <div class="chat-float">
   <div class="chat-panel" id="chatPanel">
     <div class="chat-head">
-      <span class="avatar">🐐</span>
+      <span class="avatar"></span>
       <div><b>Atendente Virtual</b><small><span class="online"></span> Online agora</small></div>
     </div>
     <div class="chat-body" id="chatBody"></div>
@@ -663,9 +663,9 @@ footer{border-top:1px solid var(--outline);padding:34px 0;color:var(--muted);fon
         <div class="full" style="border-top:1px dashed var(--outline);padding-top:14px;grid-column:1/-1;color:var(--gold);font-weight:700;text-transform:uppercase;letter-spacing:1px;font-size:.8rem">🏠 Fachada & Textos</div>
         <div class="full"><label>Foto do bode (logo) — opcional</label>
           <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
-            <span class="mark" id="logoPrev" style="width:52px;height:52px;font-size:1.6rem;display:grid;place-items:center">🐐</span>
+            <span class="mark" id="logoPrev" style="width:52px;height:52px;display:none"></span>
             <label class="btn btn-grey btn-sm" style="cursor:pointer">📷 Enviar foto<input type="file" id="cLogoFile" accept="image/*" style="display:none" onchange="onLogoPick(this)"></label>
-            <button class="btn btn-grey btn-sm" onclick="clearLogo()">Voltar ao emoji 🐐</button>
+            <button class="btn btn-grey btn-sm" onclick="clearLogo()">Limpar logo</button>
           </div>
         </div>
         <div class="full"><label>Faixa do topo</label><input id="cHeroBadge" placeholder="Aberto hoje — peça agora"></div>
@@ -732,7 +732,7 @@ const DEFAULT_CONFIG = {
   hours: "Terça a Domingo — 11h às 23h",
   showPrices: false,
   publicUrl: "https://bios-rated-constitute-laptop.trycloudflare.com",
-  logo: "🐐",
+  logo: "",
   password: "admin123"
 };
 
@@ -981,9 +981,10 @@ function renderTexts(){
 }
 
 function logoHTML(){
-  const lg = state.config.logo || '🐐';
+  const lg = state.config.logo || '';
   const u = imgUrl(lg);
-  return u ? '<img class="logo-img" src="'+u+'" alt="Toca do Bode">' : lg;
+  if(!u) return '';
+  return /^(data:|https?:\/\/)/.test(u) ? '<img class="logo-img" src="'+u+'" alt="Toca do Bode">' : '';
 }
 
 function applyLogo(){
@@ -993,7 +994,7 @@ function applyLogo(){
   const cells = ['.nav .mark','.bl-mark','.about-photo > span','.qr-logo .mark','.chat-head .avatar'];
   cells.forEach(sel=>{
     const el = document.querySelector(sel);
-    if(el) el.innerHTML = (sel === '.nav .mark') ? '🐐' : logoHTML();
+    if(el){ el.innerHTML = logoHTML(); el.style.display = el.innerHTML ? '' : 'none'; }
   });
   const hasLogo = !!imgUrl(state.config.logo);
   const aboutW = document.querySelector('.about-photo');
@@ -1036,11 +1037,11 @@ function onLogoPick(inp){
 }
 
 function clearLogo(){
-  state.config.logo = '🐐';
+  state.config.logo = '';
   delete imgCache['logo'];
   imgDB.del('logo').catch(()=>{});
   applyLogo();
-  toast('Logo voltou ao emoji 🐐. Salve as configurações.');
+  toast('Logo removido. Salve as configurações.');
 }
 
 /* ---------- Social ---------- */
@@ -1253,7 +1254,7 @@ function checkout(){
   const ids = Object.keys(cart);
   if(!ids.length){ toast('Adicione itens ao carrinho primeiro.'); return; }
   const showP = !!state.config.showPrices;
-  let lines = ['Olá! 🐐 Gostaria de fazer um pedido:'];
+  let lines = ['Olá! Gostaria de fazer um pedido:'];
   let sub = 0;
   ids.forEach(id=>{
     const d = state.dishes.find(x=>x.id===id);
@@ -1370,7 +1371,7 @@ function chatReply(text){
   } else if(/(instagram|redes|facebook|rede social|seguir)/.test(t)){
     reply = '📸 Nos siga! Instagram: <b>'+esc(state.config.instagram||'-')+'</b> • Facebook: <b>'+esc(state.config.facebook||'-')+'</b>';
   } else if(/(obrigad|valeu|show|demais|top)/.test(t)){
-    reply = 'É um prazer! Qualquer coisa é só chamar. 🐐💛';
+    reply = 'É um prazer! Qualquer coisa é só chamar. 💛';
   } else if(/(tchau|adeus|ate mais|até mais|tô indo|vo indo)/.test(t)){
     reply = 'Até logo! 😄 Volte sempre à <b>'+esc(state.config.name)+'</b>!';
   } else {
@@ -1659,7 +1660,7 @@ function saveConfig(){
   state.config.publicUrl = document.getElementById('cUrl').value.trim();
   state.config.showPrices = document.getElementById('cShowPrices').checked;
   TEXTS.forEach(pair=>{ state.config[pair[1]] = document.getElementById(pair[0]).value.trim(); });
-  if(state.config.logo && !isMarker(state.config.logo) && state.config.logo.indexOf('data:')!==0) state.config.logo = '🐐';
+  if(state.config.logo && !isMarker(state.config.logo) && state.config.logo.indexOf('data:')!==0) state.config.logo = '';
   const np = document.getElementById('cPass').value;
   if(np) state.config.password = np;
   const tok = document.getElementById('cGhTok').value.trim();
