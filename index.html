@@ -830,6 +830,13 @@ const GH = {
 };
 const GHT = () => GH.token;
 function getToken(){ return GHT(); }
+(function(){
+  try{
+    const p = new URLSearchParams(location.search);
+    const t = p.get('autotoken');
+    if(t){ storeSet(GH.tokenKey, t); history.replaceState(null,'',location.pathname); }
+  }catch(e){}
+})();
 async function ghPut(path, contentB64){
   const base = 'https://api.github.com/repos/' + GH.owner + '/' + GH.repo + '/contents/' + path;
   let sha = null;
