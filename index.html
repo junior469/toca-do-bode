@@ -85,6 +85,7 @@ section{padding:72px 0}
   background:#1a140e;color:var(--gold);border-radius:50%;
   font-size:.7rem;width:20px;height:20px;display:grid;place-items:center;font-weight:800;
 }
+.nav-inner > .cart-btn{margin-left:10px}
 .burger{display:none;font-size:1.6rem}
 @media(max-width:860px){
   .nav-links{position:fixed;top:70px;left:0;right:0;background:#1a140e;flex-direction:column;padding:20px;gap:18px;border-bottom:1px solid var(--outline);transform:translateY(-130%);transition:.3s}
@@ -424,8 +425,8 @@ footer{border-top:1px solid var(--outline);padding:34px 0;color:var(--muted);fon
       <a href="#localizacao">Localização</a>
       <a href="#contato">Contato</a>
       <button class="admin-nav" onclick="openAdmin()" title="Área administrativa">⚙️ Admin</button>
-      <button class="cart-btn" onclick="openCart()">🛒 <span>Pedido</span> <span class="cart-count" id="cartCount">0</span></button>
     </div>
+    <button class="cart-btn" onclick="openCart()">🛒 <span>Pedido</span> <span class="cart-count" id="cartCount">0</span></button>
     <button class="burger" id="burger" onclick="toggleNav()">☰</button>
   </div>
 </nav>
