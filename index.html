@@ -1661,7 +1661,7 @@ function saveConfig(){
   state.config.publicUrl = document.getElementById('cUrl').value.trim();
   state.config.showPrices = document.getElementById('cShowPrices').checked;
   TEXTS.forEach(pair=>{ state.config[pair[1]] = document.getElementById(pair[0]).value.trim(); });
-  if(state.config.logo && !isMarker(state.config.logo) && state.config.logo.indexOf('data:')!==0) state.config.logo = '';
+  if(state.config.logo && !isMarker(state.config.logo) && state.config.logo.indexOf('data:')!==0 && !/^https?:\/\//.test(state.config.logo)) state.config.logo = '';
   const np = document.getElementById('cPass').value;
   if(np) state.config.password = np;
   const tok = document.getElementById('cGhTok').value.trim();
