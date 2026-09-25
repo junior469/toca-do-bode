@@ -157,6 +157,16 @@
       "cat": "pratos",
       "avail": true,
       "img": "https://junior469.github.io/toca-do-bode/images/peixe-assado.png"
+    },
+    {
+      "id": "c14",
+      "name": "Feijão Tropeiro",
+      "desc": "Feijão tropeiro tradicional, com torresmo, farofa e temperos da casa.",
+      "price": 15,
+      "emoji": "🫘",
+      "cat": "acomp",
+      "avail": true,
+      "img": "https://junior469.github.io/toca-do-bode/images/feijao-tropeiro.png"
     }
   ]
 }
